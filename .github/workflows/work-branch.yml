@@ -1,0 +1,17 @@
+name: Rust
+
+on:
+  push:
+    branches-ignore: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: 🧹 Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: lint
+        run: make lint
