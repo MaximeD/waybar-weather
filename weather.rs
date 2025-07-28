@@ -1,7 +1,7 @@
+use chrono::{Local, Timelike};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
-use chrono::{Local, Timelike};
 
 const WEATHER_CODES: &[(&str, &str)] = &[
     ("113", "☀️"),
@@ -51,7 +51,7 @@ const WEATHER_CODES: &[(&str, &str)] = &[
     ("386", "⛈"),
     ("389", "🌩"),
     ("392", "⛈"),
-    ("395", "❄️")
+    ("395", "❄️"),
 ];
 
 fn get_weather_icon(code: &str) -> &'static str {
@@ -84,7 +84,7 @@ fn format_chances(hour: &Value) -> String {
         ("chanceofsnow", "Snow"),
         ("chanceofsunshine", "Sunshine"),
         ("chanceofthunder", "Thunder"),
-        ("chanceofwindy", "Wind")
+        ("chanceofwindy", "Wind"),
     ];
 
     let mut conditions = Vec::new();
@@ -105,40 +105,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let location = env::args()
         .nth(1)
         .ok_or("Error: City location is required. Usage: ./weather-rs \"City, Country\"")?;
-    
+
     // Fetch weather data
     let client = reqwest::blocking::Client::new();
     let url = format!("https://wttr.in/{}?format=j1", location);
-    let response = client
-        .get(&url)
-        .send()?;
-    
+    let response = client.get(&url).send()?;
+
     let weather: Value = response.json()?;
-    
+
     let current = &weather["current_condition"][0];
     let weather_code = current["weatherCode"].as_str().unwrap_or("113");
     let feels_like = current["FeelsLikeC"].as_str().unwrap_or("0");
-    
+
     let mut data = HashMap::new();
-    
+
     // Set main text
-    data.insert("text", format!("{} {}°", get_weather_icon(weather_code), feels_like));
-    
+    data.insert(
+        "text",
+        format!("{} {}°", get_weather_icon(weather_code), feels_like),
+    );
+
     // Build tooltip
     let mut tooltip = String::new();
-    let weather_desc = current["weatherDesc"][0]["value"].as_str().unwrap_or("Unknown");
+    let weather_desc = current["weatherDesc"][0]["value"]
+        .as_str()
+        .unwrap_or("Unknown");
     let temp_c = current["temp_C"].as_str().unwrap_or("0");
     let wind_speed = current["windspeedKmph"].as_str().unwrap_or("0");
     let humidity = current["humidity"].as_str().unwrap_or("0");
-    
+
     tooltip.push_str(&format!("<b>{} {}</b>\n", weather_desc, temp_c));
     tooltip.push_str(&format!("Feels like: {}°\n", feels_like));
     tooltip.push_str(&format!("Wind: {}Km/h\n", wind_speed));
     tooltip.push_str(&format!("Humidity: {}%\n", humidity));
-    
+
     let now = Local::now();
     let current_hour = now.hour();
-    
+
     // Add daily forecasts
     if let Some(weather_array) = weather["weather"].as_array() {
         for (i, day) in weather_array.iter().enumerate() {
@@ -148,18 +151,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 1 => tooltip.push_str("Tomorrow, "),
                 _ => {}
             }
-            
+
             let date = day["date"].as_str().unwrap_or("");
             tooltip.push_str(&format!("{}</b>\n", date));
-            
+
             let max_temp = day["maxtempC"].as_str().unwrap_or("0");
             let min_temp = day["mintempC"].as_str().unwrap_or("0");
             let sunrise = day["astronomy"][0]["sunrise"].as_str().unwrap_or("");
             let sunset = day["astronomy"][0]["sunset"].as_str().unwrap_or("");
-            
+
             tooltip.push_str(&format!("⬆️ {}° ⬇️ {}° ", max_temp, min_temp));
             tooltip.push_str(&format!("🌅 {} 🌆 {}\n", sunrise, sunset));
-            
+
             // Add hourly forecasts
             if let Some(hourly_array) = day["hourly"].as_array() {
                 for hour in hourly_array {
@@ -172,14 +175,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     }
-                    
+
                     let time = hour["time"].as_str().unwrap_or("");
                     let hour_weather_code = hour["weatherCode"].as_str().unwrap_or("113");
                     let hour_feels_like = hour["FeelsLikeC"].as_str().unwrap_or("0");
                     let hour_desc = hour["weatherDesc"][0]["value"].as_str().unwrap_or("");
                     let chances = format_chances(hour);
-                    
-                    tooltip.push_str(&format!("{} {} {} {}°, {}\n", 
+
+                    tooltip.push_str(&format!(
+                        "{} {} {} {}°, {}\n",
                         format_time(time),
                         get_weather_icon(hour_weather_code),
                         format_temp(hour_feels_like),
@@ -190,11 +194,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    
+
     data.insert("tooltip", tooltip);
-    
+
     // Output JSON
     println!("{}", serde_json::to_string(&data)?);
-    
+
     Ok(())
-} 
+}
